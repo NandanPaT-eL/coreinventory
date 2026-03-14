@@ -1,378 +1,309 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Building2, MapPin, Phone, Package, Loader2, Check, AlertCircle } from 'lucide-react';
-import {
-  EMPTY_WAREHOUSE,
-  WAREHOUSE_TYPE_OPTIONS,
-  TEMPERATURE_OPTIONS,
-  validateWarehouseForm,
-} from '../../types/warehouse';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Building2, MapPin, Phone, User, Mail, Hash, Save } from 'lucide-react';
+import Button from '../ui/Button';
 
-/**
- * WarehouseForm
- * Used for both Create and Edit flows.
- *
- * Props:
- *   initialData   – Warehouse object (edit mode) or undefined (create mode)
- *   onSubmit      – async (formData) => { success, error, errors }
- *   isSubmitting  – bool
- *   submitError   – string | null  (API-level error)
- */
-export default function WarehouseForm({ initialData, onSubmit, isSubmitting, submitError }) {
-  const isEdit = Boolean(initialData);
+export default function WarehouseForm({ initialData, onSubmit, isLoading, isEdit = false }) {
+  const router = useRouter();
+  const [formData, setFormData] = useState({
+    name: initialData?.name || '',
+    code: initialData?.code || '',
+    location: {
+      address: initialData?.location?.address || '',
+      city: initialData?.location?.city || '',
+      state: initialData?.location?.state || '',
+      country: initialData?.location?.country || '',
+      zipCode: initialData?.location?.zipCode || ''
+    },
+    contact: {
+      phone: initialData?.contact?.phone || '',
+      email: initialData?.contact?.email || '',
+      manager: initialData?.contact?.manager || ''
+    },
+    metadata: {
+      capacity: initialData?.metadata?.capacity || '',
+      type: initialData?.metadata?.type || 'finished goods',
+      temperature: initialData?.metadata?.temperature || 'ambient'
+    },
+    isActive: initialData?.isActive ?? true
+  });
 
-  const [form, setForm] = useState(EMPTY_WAREHOUSE);
-  const [errors, setErrors] = useState({});
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-
-  // Populate form when editing
-  useEffect(() => {
-    if (initialData) {
-      setForm({
-        name:     initialData.name     ?? '',
-        code:     initialData.code     ?? '',
-        isActive: initialData.isActive ?? true,
-        location: { ...EMPTY_WAREHOUSE.location, ...initialData.location },
-        contact:  { ...EMPTY_WAREHOUSE.contact,  ...initialData.contact  },
-        metadata: { ...EMPTY_WAREHOUSE.metadata, ...initialData.metadata },
-      });
-    }
-  }, [initialData]);
-
-  // Helpers
-  const set = (section, key, value) => {
-    if (section) {
-      setForm((prev) => ({ ...prev, [section]: { ...prev[section], [key]: value } }));
+  const handleChange = (section, field, value) => {
+    if (section === 'root') {
+      setFormData(prev => ({ ...prev, [field]: value }));
     } else {
-      setForm((prev) => ({ ...prev, [key]: value }));
-    }
-    if (errors[key] || errors[`${section}.${key}`]) {
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        delete next[`${section}.${key}`];
-        return next;
-      });
+      setFormData(prev => ({
+        ...prev,
+        [section]: {
+          ...prev[section],
+          [field]: value
+        }
+      }));
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setSubmitSuccess(false);
-    const validationErrors = validateWarehouseForm(form);
-    if (Object.keys(validationErrors).length) {
-      setErrors(validationErrors);
-      return;
-    }
-    const result = await onSubmit(form);
-    if (result?.success) {
-      setSubmitSuccess(true);
-      if (!isEdit) setForm(EMPTY_WAREHOUSE);
-      setTimeout(() => setSubmitSuccess(false), 3000);
-    } else if (result?.errors?.length) {
-      const apiErrors = {};
-      result.errors.forEach(({ path, msg }) => { apiErrors[path] = msg; });
-      setErrors(apiErrors);
-    }
+    onSubmit(formData);
   };
-
-  const inputCls = (field) =>
-    `wf-input${errors[field] ? ' wf-input-error' : ''}`;
 
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Syne:wght@700;800&display=swap');
-
-        .wf-wrap { font-family: 'DM Sans', sans-serif; }
-
-        .wf-section {
-          background: white; border-radius: 16px;
-          border: 1px solid #EDE9FE; padding: 24px;
-          margin-bottom: 20px;
-        }
-        .wf-section-title {
-          display: flex; align-items: center; gap: 8px;
-          font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700;
-          color: #1a1a2e; margin: 0 0 18px; padding-bottom: 14px;
-          border-bottom: 1px solid #F3F0FF;
-        }
-        .wf-section-icon {
-          width: 30px; height: 30px; border-radius: 8px; background: #F3F0FF;
-          display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-        }
-
-        .wf-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        .wf-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
-
-        @media (max-width: 640px) {
-          .wf-grid-2, .wf-grid-3 { grid-template-columns: 1fr; }
-        }
-
-        .wf-field { display: flex; flex-direction: column; gap: 6px; }
-        .wf-label { font-size: 13px; font-weight: 700; color: #374151; }
-        .wf-required { color: #EF4444; }
-
-        .wf-input {
-          height: 46px; padding: 0 14px;
-          background: #F9F7FF; border: 1.5px solid #EDE9FE;
-          border-radius: 12px; font-size: 14px;
-          font-family: 'DM Sans', sans-serif; color: #1a1a2e;
-          outline: none; transition: border-color 0.2s, background 0.2s;
-        }
-        .wf-input:focus { border-color: #7C3AED; background: white; }
-        .wf-input::placeholder { color: #9CA3AF; }
-        .wf-input:disabled { opacity: 0.6; }
-        .wf-input-error { border-color: #FCA5A5 !important; background: #FEF2F2 !important; }
-
-        .wf-select {
-          height: 46px; padding: 0 14px;
-          background: #F9F7FF; border: 1.5px solid #EDE9FE;
-          border-radius: 12px; font-size: 14px;
-          font-family: 'DM Sans', sans-serif; color: #1a1a2e;
-          outline: none; cursor: pointer; appearance: none;
-          transition: border-color 0.2s;
-        }
-        .wf-select:focus { border-color: #7C3AED; background: white; }
-        .wf-select:disabled { opacity: 0.6; cursor: not-allowed; }
-
-        .wf-error-msg { font-size: 12px; color: #EF4444; font-weight: 500; }
-
-        .wf-toggle-wrap {
-          display: flex; align-items: center; gap: 12px;
-          padding: 14px; background: #F9F7FF; border-radius: 12px;
-          border: 1.5px solid #EDE9FE;
-        }
-        .wf-toggle-track {
-          width: 44px; height: 24px; border-radius: 999px;
-          background: #E5E7EB; cursor: pointer; position: relative;
-          transition: background 0.2s; border: none; padding: 0; flex-shrink: 0;
-        }
-        .wf-toggle-track.on { background: #7C3AED; }
-        .wf-toggle-thumb {
-          position: absolute; top: 3px; left: 3px;
-          width: 18px; height: 18px; border-radius: 50%;
-          background: white; transition: transform 0.2s;
-          box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-        }
-        .wf-toggle-track.on .wf-toggle-thumb { transform: translateX(20px); }
-
-        /* submit row */
-        .wf-submit-row {
-          display: flex; align-items: center; justify-content: flex-end;
-          gap: 12px; flex-wrap: wrap;
-        }
-        .wf-btn-submit {
-          display: flex; align-items: center; gap: 8px;
-          padding: 0 28px; height: 48px; border-radius: 999px;
-          background: #7C3AED; color: white; border: none;
-          font-size: 15px; font-weight: 700; cursor: pointer;
-          font-family: 'DM Sans', sans-serif;
-          transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
-        }
-        .wf-btn-submit:hover:not(:disabled) {
-          background: #6d28d9; transform: translateY(-1px);
-          box-shadow: 0 8px 24px rgba(124,58,237,0.3);
-        }
-        .wf-btn-submit:disabled { opacity: 0.55; cursor: not-allowed; }
-        .wf-btn-cancel {
-          display: flex; align-items: center; gap: 8px;
-          padding: 0 22px; height: 48px; border-radius: 999px;
-          background: white; color: #374151;
-          border: 1.5px solid #EDE9FE; font-size: 14px; font-weight: 600;
-          cursor: pointer; font-family: 'DM Sans', sans-serif;
-          transition: all 0.2s; text-decoration: none;
-        }
-        .wf-btn-cancel:hover { border-color: #C4B5FD; color: #7C3AED; }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .spin { animation: spin 0.7s linear infinite; }
-      `}</style>
-
-      <form className="wf-wrap" onSubmit={handleSubmit}>
-
-        {/* API submit error */}
-        {submitError && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', background: '#FEF2F2', border: '1.5px solid #FCA5A5', borderRadius: 12, marginBottom: 20 }}>
-            <AlertCircle size={17} color="#EF4444" />
-            <p style={{ fontSize: 13, color: '#B91C1C', margin: 0, fontWeight: 500 }}>{submitError}</p>
+    <form onSubmit={handleSubmit} className="space-y-8">
+      {/* Basic Information */}
+      <div className="space-y-4">
+        <h3 className="display-font font-bold text-lg text-[#1a1a2e] flex items-center gap-2">
+          <Building2 size={20} className="text-[#7C3AED]" />
+          Basic Information
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#374151]">
+              Warehouse Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => handleChange('root', 'name', e.target.value)}
+              className="w-full px-4 py-3 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200"
+              placeholder="e.g., Main Warehouse"
+              required
+              disabled={isLoading}
+            />
           </div>
-        )}
 
-        {/* Success banner */}
-        {submitSuccess && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '13px 16px', background: '#ECFDF5', border: '1.5px solid #6EE7B7', borderRadius: 12, marginBottom: 20 }}>
-            <Check size={17} color="#10B981" />
-            <p style={{ fontSize: 13, color: '#065F46', margin: 0, fontWeight: 600 }}>
-              Warehouse {isEdit ? 'updated' : 'created'} successfully!
-            </p>
-          </div>
-        )}
-
-        {/* ── Section 1: Basic info ── */}
-        <div className="wf-section">
-          <h3 className="wf-section-title">
-            <div className="wf-section-icon"><Building2 size={15} color="#7C3AED" /></div>
-            Basic Information
-          </h3>
-          <div className="wf-grid-2">
-            <div className="wf-field">
-              <label className="wf-label">Name <span className="wf-required">*</span></label>
-              <input className={inputCls('name')} type="text" placeholder="e.g. Main Warehouse Mumbai"
-                value={form.name} onChange={(e) => set(null, 'name', e.target.value)}
-                disabled={isSubmitting} />
-              {errors.name && <span className="wf-error-msg">{errors.name}</span>}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#374151]">
+              Warehouse Code <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Hash className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
+              <input
+                type="text"
+                value={formData.code}
+                onChange={(e) => handleChange('root', 'code', e.target.value.toUpperCase())}
+                className="w-full pl-9 pr-4 py-3 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200 font-mono uppercase"
+                placeholder="WH001"
+                required
+                disabled={isLoading}
+              />
             </div>
-            <div className="wf-field">
-              <label className="wf-label">Code <span className="wf-required">*</span></label>
-              <input className={inputCls('code')} type="text" placeholder="e.g. WH001"
-                value={form.code} onChange={(e) => set(null, 'code', e.target.value.toUpperCase())}
-                disabled={isSubmitting || isEdit} />
-              {errors.code && <span className="wf-error-msg">{errors.code}</span>}
-              {isEdit && <span style={{ fontSize: 11, color: '#9CA3AF' }}>Code cannot be changed</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* Location Information */}
+      <div className="space-y-4">
+        <h3 className="display-font font-bold text-lg text-[#1a1a2e] flex items-center gap-2">
+          <MapPin size={20} className="text-[#7C3AED]" />
+          Location Details
+        </h3>
+        
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#374151]">Address</label>
+            <input
+              type="text"
+              value={formData.location.address}
+              onChange={(e) => handleChange('location', 'address', e.target.value)}
+              className="w-full px-4 py-3 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200"
+              placeholder="Street address"
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-[#374151]">City</label>
+              <input
+                type="text"
+                value={formData.location.city}
+                onChange={(e) => handleChange('location', 'city', e.target.value)}
+                className="w-full px-4 py-3 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200"
+                placeholder="Mumbai"
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-[#374151]">State</label>
+              <input
+                type="text"
+                value={formData.location.state}
+                onChange={(e) => handleChange('location', 'state', e.target.value)}
+                className="w-full px-4 py-3 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200"
+                placeholder="Maharashtra"
+                disabled={isLoading}
+              />
             </div>
           </div>
 
-          {/* Active toggle */}
-          <div style={{ marginTop: 16 }}>
-            <label className="wf-label" style={{ marginBottom: 8, display: 'block' }}>Status</label>
-            <div className="wf-toggle-wrap">
-              <button
-                type="button"
-                className={`wf-toggle-track${form.isActive ? ' on' : ''}`}
-                onClick={() => set(null, 'isActive', !form.isActive)}
-                disabled={isSubmitting}
-              >
-                <div className="wf-toggle-thumb" />
-              </button>
-              <div>
-                <p style={{ fontSize: 13, fontWeight: 600, color: form.isActive ? '#065F46' : '#6B7280', margin: 0 }}>
-                  {form.isActive ? 'Active' : 'Inactive'}
-                </p>
-                <p style={{ fontSize: 11, color: '#9CA3AF', margin: 0 }}>
-                  {form.isActive ? 'Warehouse is operational' : 'Warehouse is not accepting stock'}
-                </p>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-[#374151]">Country</label>
+              <input
+                type="text"
+                value={formData.location.country}
+                onChange={(e) => handleChange('location', 'country', e.target.value)}
+                className="w-full px-4 py-3 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200"
+                placeholder="India"
+                disabled={isLoading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-[#374151]">ZIP Code</label>
+              <input
+                type="text"
+                value={formData.location.zipCode}
+                onChange={(e) => handleChange('location', 'zipCode', e.target.value)}
+                className="w-full px-4 py-3 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200"
+                placeholder="400001"
+                disabled={isLoading}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Contact Information */}
+      <div className="space-y-4">
+        <h3 className="display-font font-bold text-lg text-[#1a1a2e] flex items-center gap-2">
+          <Phone size={20} className="text-[#7C3AED]" />
+          Contact Details
+        </h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#374151]">Manager Name</label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
+              <input
+                type="text"
+                value={formData.contact.manager}
+                onChange={(e) => handleChange('contact', 'manager', e.target.value)}
+                className="w-full pl-9 pr-4 py-3 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200"
+                placeholder="Rajesh Kumar"
+                disabled={isLoading}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#374151]">Phone Number</label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
+              <input
+                type="tel"
+                value={formData.contact.phone}
+                onChange={(e) => handleChange('contact', 'phone', e.target.value)}
+                className="w-full pl-9 pr-4 py-3 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200"
+                placeholder="+91 98765 43210"
+                disabled={isLoading}
+              />
             </div>
           </div>
         </div>
 
-        {/* ── Section 2: Location ── */}
-        <div className="wf-section">
-          <h3 className="wf-section-title">
-            <div className="wf-section-icon"><MapPin size={15} color="#7C3AED" /></div>
-            Location
-          </h3>
-          <div className="wf-field" style={{ marginBottom: 16 }}>
-            <label className="wf-label">Address</label>
-            <input className="wf-input" type="text" placeholder="Street address"
-              value={form.location.address} onChange={(e) => set('location', 'address', e.target.value)}
-              disabled={isSubmitting} />
-          </div>
-          <div className="wf-grid-3">
-            <div className="wf-field">
-              <label className="wf-label">City</label>
-              <input className="wf-input" type="text" placeholder="Mumbai"
-                value={form.location.city} onChange={(e) => set('location', 'city', e.target.value)}
-                disabled={isSubmitting} />
-            </div>
-            <div className="wf-field">
-              <label className="wf-label">State</label>
-              <input className="wf-input" type="text" placeholder="Maharashtra"
-                value={form.location.state} onChange={(e) => set('location', 'state', e.target.value)}
-                disabled={isSubmitting} />
-            </div>
-            <div className="wf-field">
-              <label className="wf-label">Zip Code</label>
-              <input className="wf-input" type="text" placeholder="400001"
-                value={form.location.zipCode} onChange={(e) => set('location', 'zipCode', e.target.value)}
-                disabled={isSubmitting} />
-            </div>
-          </div>
-          <div className="wf-field" style={{ marginTop: 16 }}>
-            <label className="wf-label">Country</label>
-            <input className="wf-input" type="text" placeholder="India"
-              value={form.location.country} onChange={(e) => set('location', 'country', e.target.value)}
-              disabled={isSubmitting} style={{ maxWidth: 240 }} />
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-[#374151]">Email Address</label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
+            <input
+              type="email"
+              value={formData.contact.email}
+              onChange={(e) => handleChange('contact', 'email', e.target.value)}
+              className="w-full pl-9 pr-4 py-3 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200"
+              placeholder="warehouse@company.com"
+              disabled={isLoading}
+            />
           </div>
         </div>
+      </div>
 
-        {/* ── Section 3: Contact ── */}
-        <div className="wf-section">
-          <h3 className="wf-section-title">
-            <div className="wf-section-icon"><Phone size={15} color="#7C3AED" /></div>
-            Contact Details
-          </h3>
-          <div className="wf-grid-3">
-            <div className="wf-field">
-              <label className="wf-label">Manager Name</label>
-              <input className="wf-input" type="text" placeholder="Rajesh Kumar"
-                value={form.contact.manager} onChange={(e) => set('contact', 'manager', e.target.value)}
-                disabled={isSubmitting} />
-            </div>
-            <div className="wf-field">
-              <label className="wf-label">Phone</label>
-              <input className="wf-input" type="tel" placeholder="+91 9876543210"
-                value={form.contact.phone} onChange={(e) => set('contact', 'phone', e.target.value)}
-                disabled={isSubmitting} />
-            </div>
-            <div className="wf-field">
-              <label className="wf-label">Email</label>
-              <input className={inputCls('contact.email')} type="email" placeholder="warehouse@company.com"
-                value={form.contact.email} onChange={(e) => set('contact', 'email', e.target.value)}
-                disabled={isSubmitting} />
-              {errors['contact.email'] && <span className="wf-error-msg">{errors['contact.email']}</span>}
-            </div>
+      {/* Additional Metadata */}
+      <div className="space-y-4">
+        <h3 className="display-font font-bold text-lg text-[#1a1a2e]">Additional Information</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#374151]">Capacity</label>
+            <input
+              type="text"
+              value={formData.metadata.capacity}
+              onChange={(e) => handleChange('metadata', 'capacity', e.target.value)}
+              className="w-full px-4 py-3 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200"
+              placeholder="15000 sqft"
+              disabled={isLoading}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#374151]">Type</label>
+            <select
+              value={formData.metadata.type}
+              onChange={(e) => handleChange('metadata', 'type', e.target.value)}
+              className="w-full px-4 py-3 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200"
+              disabled={isLoading}
+            >
+              <option value="finished goods">Finished Goods</option>
+              <option value="raw materials">Raw Materials</option>
+              <option value="distribution">Distribution Center</option>
+              <option value="tech hub">Tech Hub</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#374151]">Temperature</label>
+            <select
+              value={formData.metadata.temperature}
+              onChange={(e) => handleChange('metadata', 'temperature', e.target.value)}
+              className="w-full px-4 py-3 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200"
+              disabled={isLoading}
+            >
+              <option value="ambient">Ambient</option>
+              <option value="refrigerated">Refrigerated</option>
+              <option value="frozen">Frozen</option>
+              <option value="controlled">Controlled</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-[#374151]">Status</label>
+            <select
+              value={formData.isActive}
+              onChange={(e) => handleChange('root', 'isActive', e.target.value === 'true')}
+              className="w-full px-4 py-3 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200"
+              disabled={isLoading}
+            >
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
           </div>
         </div>
+      </div>
 
-        {/* ── Section 4: Metadata ── */}
-        <div className="wf-section">
-          <h3 className="wf-section-title">
-            <div className="wf-section-icon"><Package size={15} color="#7C3AED" /></div>
-            Additional Details
-          </h3>
-          <div className="wf-grid-3">
-            <div className="wf-field">
-              <label className="wf-label">Warehouse Type</label>
-              <select className="wf-select" value={form.metadata.type}
-                onChange={(e) => set('metadata', 'type', e.target.value)} disabled={isSubmitting}>
-                <option value="">Select type…</option>
-                {WAREHOUSE_TYPE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="wf-field">
-              <label className="wf-label">Temperature</label>
-              <select className="wf-select" value={form.metadata.temperature}
-                onChange={(e) => set('metadata', 'temperature', e.target.value)} disabled={isSubmitting}>
-                <option value="">Select…</option>
-                {TEMPERATURE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="wf-field">
-              <label className="wf-label">Capacity</label>
-              <input className="wf-input" type="text" placeholder="e.g. 15000 sqft"
-                value={form.metadata.capacity} onChange={(e) => set('metadata', 'capacity', e.target.value)}
-                disabled={isSubmitting} />
-            </div>
-          </div>
-        </div>
-
-        {/* ── Submit row ── */}
-        <div className="wf-submit-row">
-          <a href="/settings/warehouses" className="wf-btn-cancel">Cancel</a>
-          <button type="submit" className="wf-btn-submit" disabled={isSubmitting}>
-            {isSubmitting
-              ? <><Loader2 size={16} className="spin" /> {isEdit ? 'Saving…' : 'Creating…'}</>
-              : <><Check size={16} /> {isEdit ? 'Save Changes' : 'Create Warehouse'}</>}
-          </button>
-        </div>
-      </form>
-    </>
+      {/* Form Actions */}
+      <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#F3F0FF]">
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => router.back()}
+          disabled={isLoading}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          variant="primary"
+          icon={<Save size={16} />}
+          disabled={isLoading}
+        >
+          {isLoading ? 'Saving...' : isEdit ? 'Update Warehouse' : 'Create Warehouse'}
+        </Button>
+      </div>
+    </form>
   );
 }

@@ -8,7 +8,7 @@ import {
 } from "../controllers/auth.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
 import { authorizeRoles } from "../middleware/role.middleware.js";
-import { validateZod } from "../middleware/validateZod.middleware.js";
+import validate from "../middleware/validateZod.middleware.js";  // Default import
 import {
   signUpSchema,
   signInSchema,
@@ -24,10 +24,10 @@ Public Routes
 --------------------------------------------------
 */
 
-router.post("/signup", validateZod(signUpSchema), signUp);
-router.post("/signin", validateZod(signInSchema), signIn);
-router.post("/forgot-password", validateZod(forgotPasswordSchema), forgotPassword);
-router.post("/reset-password", validateZod(resetPasswordSchema), resetPassword);
+router.post("/signup", validate(signUpSchema), signUp);
+router.post("/signin", validate(signInSchema), signIn);
+router.post("/forgot-password", validate(forgotPasswordSchema), forgotPassword);
+router.post("/reset-password", validate(resetPasswordSchema), resetPassword);
 
 /*
 --------------------------------------------------

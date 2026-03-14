@@ -6,6 +6,8 @@ import { Plus, Building2, RefreshCw } from 'lucide-react';
 import { useWarehouses } from '../../../hooks/useWarehouses';
 import WarehouseTable from '../../../components/warehouses/WarehouseTable';
 import WarehouseFilters from '../../../components/warehouses/WarehouseFilters';
+import Button from '../../../components/ui/Button';
+import SectionHeading from '../../../components/shared/SectionHeading';
 
 export default function WarehousesPage() {
   const { 
@@ -38,21 +40,10 @@ export default function WarehousesPage() {
       limit: pagination.limit
     };
     
-    // Only add filters if they have values
-    if (filters.search && filters.search.trim() !== '') {
-      params.search = filters.search.trim();
-    }
-    if (filters.isActive && filters.isActive !== '') {
-      params.isActive = filters.isActive === 'true';
-    }
-    if (filters.city && filters.city.trim() !== '') {
-      params.city = filters.city.trim();
-    }
-    if (filters.country && filters.country.trim() !== '') {
-      params.country = filters.country.trim();
-    }
-    
-    console.log('Fetching warehouses with params:', params);
+    if (filters.search?.trim()) params.search = filters.search.trim();
+    if (filters.isActive) params.isActive = filters.isActive === 'true';
+    if (filters.city?.trim()) params.city = filters.city.trim();
+    if (filters.country?.trim()) params.country = filters.country.trim();
     
     const result = await fetchWarehouses(params);
     
@@ -69,7 +60,7 @@ export default function WarehousesPage() {
     }
   }, [loadWarehouses]);
 
-  // Load when filters or page change
+  // Load when filters change
   useEffect(() => {
     if (initialLoadDone.current) {
       loadWarehouses();
@@ -77,9 +68,8 @@ export default function WarehousesPage() {
   }, [filters.search, filters.isActive, filters.city, filters.country, pagination.page, loadWarehouses]);
 
   const handleFilterChange = (key, value) => {
-    console.log('Filter change:', key, value);
     setFilters(prev => ({ ...prev, [key]: value }));
-    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+    setPagination(prev => ({ ...prev, page: 1 }));
   };
 
   const clearFilters = () => {
@@ -98,18 +88,14 @@ export default function WarehousesPage() {
 
   const handleDeactivate = async (id) => {
     if (confirm('Are you sure you want to deactivate this warehouse?')) {
-      const result = await deactivateExistingWarehouse(id);
-      if (result.success) {
-        loadWarehouses(); // Reload after action
-      }
+      await deactivateExistingWarehouse(id);
+      loadWarehouses();
     }
   };
 
   const handleActivate = async (id) => {
-    const result = await activateExistingWarehouse(id);
-    if (result.success) {
-      loadWarehouses(); // Reload after action
-    }
+    await activateExistingWarehouse(id);
+    loadWarehouses();
   };
 
   const handleRefresh = () => {
@@ -118,17 +104,14 @@ export default function WarehousesPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
-            <h2 className="text-xl font-semibold text-red-800 mb-2">Error Loading Warehouses</h2>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30 p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
+            <h2 className="text-xl font-bold text-red-800 mb-2">Error Loading Warehouses</h2>
             <p className="text-red-600 mb-4">{error}</p>
-            <button 
-              onClick={handleRefresh}
-              className="bg-red-600 text-white px-6 py-3 rounded-xl hover:bg-red-700 transition-colors"
-            >
+            <Button onClick={handleRefresh} variant="primary">
               Try Again
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -140,25 +123,27 @@ export default function WarehousesPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Warehouses</h1>
-            <p className="text-slate-600 mt-1">Manage your warehouse locations</p>
-          </div>
+          <SectionHeading
+            badge="Warehouses"
+            title="Manage"
+            highlight="Locations"
+            description="View and manage all your warehouse locations"
+            align="left"
+          />
+          
           <div className="flex gap-3">
-            <button
+            <Button
+              variant="ghost"
               onClick={handleRefresh}
               disabled={loading}
-              className="bg-white text-slate-700 px-4 py-3 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-all border border-slate-200 flex items-center disabled:opacity-50"
+              icon={<RefreshCw size={16} className={loading ? 'animate-spin' : ''} />}
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               Refresh
-            </button>
-            <Link
-              href="/settings/warehouses/new"
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center"
-            >
-              <Plus className="h-5 w-5 mr-2" />
-              Add Warehouse
+            </Button>
+            <Link href="/settings/warehouses/new">
+              <Button variant="primary" icon={<Plus size={16} />}>
+                Add Warehouse
+              </Button>
             </Link>
           </div>
         </div>
@@ -175,50 +160,14 @@ export default function WarehousesPage() {
         </div>
 
         {/* Table */}
-        {warehouses.length > 0 ? (
-          <WarehouseTable
-            warehouses={warehouses}
-            isLoading={loading}
-            onDeactivate={handleDeactivate}
-            onActivate={handleActivate}
-            pagination={pagination}
-            onPageChange={handlePageChange}
-          />
-        ) : !loading && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-            <Building2 className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">No warehouses found</h3>
-            <p className="text-slate-600 mb-6">
-              {filters.search || filters.city || filters.country || filters.isActive 
-                ? 'No warehouses match your filters. Try clearing them.' 
-                : 'Get started by creating your first warehouse'}
-            </p>
-            {filters.search || filters.city || filters.country || filters.isActive ? (
-              <button
-                onClick={clearFilters}
-                className="inline-flex items-center bg-blue-600 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-all"
-              >
-                Clear Filters
-              </button>
-            ) : (
-              <Link
-                href="/settings/warehouses/new"
-                className="inline-flex items-center bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl text-sm font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Add Your First Warehouse
-              </Link>
-            )}
-          </div>
-        )}
-
-        {/* Loading State */}
-        {loading && warehouses.length === 0 && (
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="text-slate-600 mt-4">Loading warehouses...</p>
-          </div>
-        )}
+        <WarehouseTable
+          warehouses={warehouses}
+          isLoading={loading}
+          onDeactivate={handleDeactivate}
+          onActivate={handleActivate}
+          pagination={pagination}
+          onPageChange={handlePageChange}
+        />
       </div>
     </div>
   );

@@ -1,75 +1,73 @@
-// backend/src/validators/warehouse.validator.js
-import { body, param, validationResult } from "express-validator";
+import { z } from 'zod';
 
-// This returns an array of express-validator checks
-export const validateWarehouse = [
-  body("name")
-    .notEmpty().withMessage("Warehouse name is required")
-    .isString().withMessage("Name must be a string")
-    .isLength({ max: 100 }).withMessage("Name cannot exceed 100 characters")
-    .trim(),
+// Create warehouse schema
+export const createWarehouseSchema = {
+  body: z.object({
+    name: z.string().min(2, 'Warehouse name must be at least 2 characters'),
+    code: z.string().min(2, 'Warehouse code must be at least 2 characters').max(10),
+    address: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    country: z.string().optional(),
+    pincode: z.string().optional(),
+    phone: z.string().optional(),
+    email: z.string().email('Invalid email format').optional(),
+    manager: z.string().optional(),
+    isActive: z.boolean().optional().default(true)
+  })
+};
 
-  body("code")
-    .notEmpty().withMessage("Warehouse code is required")
-    .isString().withMessage("Code must be a string")
-    .isLength({ max: 20 }).withMessage("Code cannot exceed 20 characters")
-    .isAlphanumeric().withMessage("Code must contain only letters and numbers")
-    .toUpperCase()
-    .trim(),
+// Update warehouse schema
+export const updateWarehouseSchema = {
+  params: z.object({
+    id: z.string().min(1, 'Warehouse ID is required')
+  }),
+  body: z.object({
+    name: z.string().min(2, 'Warehouse name must be at least 2 characters').optional(),
+    code: z.string().min(2, 'Warehouse code must be at least 2 characters').max(10).optional(),
+    address: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    country: z.string().optional(),
+    pincode: z.string().optional(),
+    phone: z.string().optional(),
+    email: z.string().email('Invalid email format').optional(),
+    manager: z.string().optional(),
+    isActive: z.boolean().optional()
+  })
+};
 
-  body("location.address")
-    .optional()
-    .isString().withMessage("Address must be a string")
-    .isLength({ max: 200 }).withMessage("Address cannot exceed 200 characters")
-    .trim(),
+// Get single warehouse schema
+export const getWarehouseSchema = {
+  params: z.object({
+    id: z.string().min(1, 'Warehouse ID is required')
+  })
+};
 
-  body("location.city")
-    .optional()
-    .isString().withMessage("City must be a string")
-    .isLength({ max: 50 }).withMessage("City cannot exceed 50 characters")
-    .trim(),
+// Get warehouses list schema
+export const getWarehousesSchema = {
+  query: z.object({
+    page: z.string().optional().default('1'),
+    limit: z.string().optional().default('10'),
+    search: z.string().optional(),
+    isActive: z.enum(['true', 'false']).optional(),
+    sortBy: z.enum(['name', 'code', 'createdAt']).optional().default('name'),
+    sortOrder: z.enum(['asc', 'desc']).optional().default('asc')
+  })
+};
 
-  body("location.state")
-    .optional()
-    .isString().withMessage("State must be a string")
-    .isLength({ max: 50 }).withMessage("State cannot exceed 50 characters")
-    .trim(),
+// Delete warehouse schema
+export const deleteWarehouseSchema = {
+  params: z.object({
+    id: z.string().min(1, 'Warehouse ID is required')
+  })
+};
 
-  body("location.country")
-    .optional()
-    .isString().withMessage("Country must be a string")
-    .isLength({ max: 50 }).withMessage("Country cannot exceed 50 characters")
-    .trim(),
-
-  body("location.zipCode")
-    .optional()
-    .isString().withMessage("ZIP code must be a string")
-    .isLength({ max: 20 }).withMessage("ZIP code cannot exceed 20 characters")
-    .trim(),
-
-  body("contact.phone")
-    .optional()
-    .isString().withMessage("Phone must be a string")
-    .isLength({ max: 20 }).withMessage("Phone cannot exceed 20 characters")
-    .trim(),
-
-  body("contact.email")
-    .optional()
-    .isEmail().withMessage("Please enter a valid email")
-    .normalizeEmail(),
-
-  body("contact.manager")
-    .optional()
-    .isString().withMessage("Manager name must be a string")
-    .isLength({ max: 100 }).withMessage("Manager name cannot exceed 100 characters")
-    .trim(),
-
-  body("isActive")
-    .optional()
-    .isBoolean().withMessage("isActive must be a boolean")
-];
-
-export const validateWarehouseId = [
-  param("id")
-    .isMongoId().withMessage("Invalid warehouse ID format")
-];
+// Also export as default for backward compatibility
+export default {
+  createWarehouseSchema,
+  updateWarehouseSchema,
+  getWarehouseSchema,
+  getWarehousesSchema,
+  deleteWarehouseSchema
+};

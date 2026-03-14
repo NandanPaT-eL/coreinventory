@@ -1,30 +1,112 @@
-import { verifyAccessToken } from "../utils/jwt.js";
+import jwt from 'jsonwebtoken';
+import User from '../models/User.model.js';
+import { env } from '../config/env.js';
 
-export async function protect(req, res, next) {
+// Protect routes - verify JWT token
+export const protect = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    let token;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // Check for token in Authorization header
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+      token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (!token) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized: token missing"
+        message: 'Not authorized to access this route'
       });
     }
 
-    const token = authHeader.split(" ")[1];
-    const decoded = verifyAccessToken(token);
+    try {
+      // Verify token
+      const decoded = jwt.verify(token, env.JWT_SECRET);
 
-    req.user = {
-      id: decoded.id,
-      email: decoded.email,
-      role: decoded.role
-    };
+      // Get user from token
+      const user = await User.findById(decoded.id).select('-password');
 
-    next();
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      // Check if user is active
+      if (!user.isActive) {
+        return res.status(401).json({
+          success: false,
+          message: 'User account is deactivated'
+        });
+      }
+
+      req.user = user;
+      next();
+    } catch (error) {
+      console.error('Token verification error:', error);
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized to access this route'
+      });
+    }
   } catch (error) {
-    return res.status(401).json({
+    console.error('Auth middleware error:', error);
+    res.status(500).json({
       success: false,
-      message: "Unauthorized: invalid or expired token"
+      message: 'Server error'
     });
   }
-}
+};
+
+// Admin only middleware
+export const adminOnly = (req, res, next) => {
+  if (req.user && req.user.role === 'admin') {
+    next();
+  } else {
+    res.status(403).json({
+      success: false,
+      message: 'Access denied. Admin only.'
+    });
+  }
+};
+
+// Manager or Admin middleware
+export const managerOrAdmin = (req, res, next) => {
+  if (req.user && (req.user.role === 'admin' || req.user.role === 'manager')) {
+    next();
+  } else {
+    res.status(403).json({
+      success: false,
+      message: 'Access denied. Manager or Admin only.'
+    });
+  }
+};
+
+// Optional: Combine multiple roles
+export const authorize = (...roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Not authorized'
+      });
+    }
+
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: `Access denied. Required role: ${roles.join(' or ')}`
+      });
+    }
+
+    next();
+  };
+};
+
+export default {
+  protect,
+  adminOnly,
+  managerOrAdmin,
+  authorize
+};

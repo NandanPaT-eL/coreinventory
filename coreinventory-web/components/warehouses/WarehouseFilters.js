@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Search, X, Filter } from 'lucide-react';
+import { Search, X, Filter, MapPin, Globe } from 'lucide-react';
+import Badge from '../ui/Badge';
 
 export default function WarehouseFilters({ 
   filters, 
@@ -12,18 +13,16 @@ export default function WarehouseFilters({
 }) {
   const [searchInput, setSearchInput] = useState(filters.search || '');
 
-  // Update local state when filters change externally
   useEffect(() => {
     setSearchInput(filters.search || '');
   }, [filters.search]);
 
-  // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchInput !== filters.search) {
         onFilterChange('search', searchInput);
       }
-    }, 500); // Wait 500ms after user stops typing
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [searchInput, filters.search, onFilterChange]);
@@ -32,21 +31,8 @@ export default function WarehouseFilters({
     setSearchInput(e.target.value);
   };
 
-  const handleStatusChange = (e) => {
-    onFilterChange('isActive', e.target.value);
-  };
-
-  const handleCityChange = (e) => {
-    onFilterChange('city', e.target.value);
-  };
-
-  const handleCountryChange = (e) => {
-    onFilterChange('country', e.target.value);
-  };
-
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') {
-      // Immediate search on Enter key
       onFilterChange('search', searchInput);
     }
   };
@@ -54,55 +40,58 @@ export default function WarehouseFilters({
   const hasActiveFilters = filters.search || filters.isActive || filters.city || filters.country;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+    <div className="bg-white rounded-2xl shadow-sm border border-[#EDE9FE] p-6">
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center">
-          <Filter className="h-5 w-5 text-slate-500 mr-2" />
-          <h3 className="font-medium text-slate-900">Filters</h3>
+        <div className="flex items-center gap-2">
+          <Filter size={18} className="text-[#6B7280]" />
+          <h3 className="font-semibold text-[#1a1a2e]">Filters</h3>
+          {hasActiveFilters && (
+            <Badge variant="purple" className="ml-2">
+              Active filters
+            </Badge>
+          )}
         </div>
         {hasActiveFilters && (
           <button
             onClick={onClearFilters}
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center"
+            className="text-sm text-[#7C3AED] hover:text-[#6d28d9] font-medium flex items-center gap-1 transition-colors"
           >
-            <X className="h-4 w-4 mr-1" />
+            <X size={16} />
             Clear all
           </button>
         )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Search with debounce */}
-        <div>
-          <label htmlFor="search" className="block text-xs font-medium text-slate-500 mb-1">
+        {/* Search */}
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-[#6B7280] uppercase tracking-wider">
             Search
           </label>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
             <input
               type="text"
-              id="search"
               value={searchInput}
               onChange={handleSearchChange}
               onKeyDown={handleKeyDown}
               placeholder="Name or code..."
-              className="pl-9 pr-4 py-2 w-full bg-slate-50 border border-slate-200 rounded-lg focus:ring-0 focus:outline-none focus:border-blue-500 focus:bg-white transition-all duration-200 text-sm"
+              className="w-full pl-9 pr-4 py-2.5 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200 text-sm placeholder:text-[#9CA3AF]"
               disabled={isLoading}
             />
           </div>
-          <p className="text-xs text-slate-400 mt-1">Type and wait or press Enter to search</p>
+          <p className="text-xs text-[#9CA3AF]">Type and wait or press Enter</p>
         </div>
 
         {/* Status */}
-        <div>
-          <label htmlFor="status" className="block text-xs font-medium text-slate-500 mb-1">
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-[#6B7280] uppercase tracking-wider">
             Status
           </label>
           <select
-            id="status"
             value={filters.isActive || ''}
-            onChange={handleStatusChange}
-            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-0 focus:outline-none focus:border-blue-500 focus:bg-white transition-all duration-200 text-sm"
+            onChange={(e) => onFilterChange('isActive', e.target.value)}
+            className="w-full px-4 py-2.5 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200 text-sm"
             disabled={isLoading}
           >
             <option value="">All</option>
@@ -112,42 +101,47 @@ export default function WarehouseFilters({
         </div>
 
         {/* City */}
-        <div>
-          <label htmlFor="city" className="block text-xs font-medium text-slate-500 mb-1">
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-[#6B7280] uppercase tracking-wider">
             City
           </label>
-          <input
-            type="text"
-            id="city"
-            value={filters.city || ''}
-            onChange={handleCityChange}
-            placeholder="Filter by city..."
-            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-0 focus:outline-none focus:border-blue-500 focus:bg-white transition-all duration-200 text-sm"
-            disabled={isLoading}
-          />
+          <div className="relative">
+            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
+            <input
+              type="text"
+              value={filters.city || ''}
+              onChange={(e) => onFilterChange('city', e.target.value)}
+              placeholder="Filter by city..."
+              className="w-full pl-9 pr-4 py-2.5 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200 text-sm placeholder:text-[#9CA3AF]"
+              disabled={isLoading}
+            />
+          </div>
         </div>
 
         {/* Country */}
-        <div>
-          <label htmlFor="country" className="block text-xs font-medium text-slate-500 mb-1">
+        <div className="space-y-1">
+          <label className="block text-xs font-medium text-[#6B7280] uppercase tracking-wider">
             Country
           </label>
-          <input
-            type="text"
-            id="country"
-            value={filters.country || ''}
-            onChange={handleCountryChange}
-            placeholder="Filter by country..."
-            className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-0 focus:outline-none focus:border-blue-500 focus:bg-white transition-all duration-200 text-sm"
-            disabled={isLoading}
-          />
+          <div className="relative">
+            <Globe className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9CA3AF]" />
+            <input
+              type="text"
+              value={filters.country || ''}
+              onChange={(e) => onFilterChange('country', e.target.value)}
+              placeholder="Filter by country..."
+              className="w-full pl-9 pr-4 py-2.5 bg-[#F9F7FF] border border-[#EDE9FE] rounded-xl focus:ring-0 focus:outline-none focus:border-[#7C3AED] focus:bg-white transition-all duration-200 text-sm placeholder:text-[#9CA3AF]"
+              disabled={isLoading}
+            />
+          </div>
         </div>
       </div>
 
       {/* Results count */}
-      <div className="mt-4 pt-4 border-t border-slate-100">
-        <p className="text-sm text-slate-600">
-          <span className="font-semibold text-slate-900">{totalResults}</span> warehouses found
+      <div className="mt-4 pt-4 border-t border-[#F3F0FF]">
+        <p className="text-sm text-[#6B7280]">
+          <span className="font-bold text-[#7C3AED] text-lg mr-1">{totalResults}</span>
+          warehouse{totalResults !== 1 ? 's' : ''} found
         </p>
       </div>
     </div>

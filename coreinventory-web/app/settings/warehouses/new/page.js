@@ -2,9 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Building2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useWarehouses } from '../../../../hooks/useWarehouses';
 import WarehouseForm from '../../../../components/warehouses/WarehouseForm';
+import SectionHeading from '../../../../components/shared/SectionHeading';
 
 export default function NewWarehousePage() {
   const router = useRouter();
@@ -21,24 +22,28 @@ export default function NewWarehousePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/30">
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Back button */}
         <Link
           href="/settings/warehouses"
-          className="inline-flex items-center text-sm text-slate-600 hover:text-slate-900 mb-6 transition-colors"
+          className="inline-flex items-center text-sm text-[#6B7280] hover:text-[#7C3AED] mb-6 transition-colors group"
         >
-          <ArrowLeft className="h-4 w-4 mr-2" />
+          <ArrowLeft size={16} className="mr-2 group-hover:-translate-x-1 transition-transform" />
           Back to Warehouses
         </Link>
 
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Add New Warehouse</h1>
-          <p className="text-slate-600 mt-1">Create a new warehouse location</p>
-        </div>
+        <SectionHeading
+          badge="New Warehouse"
+          title="Add"
+          highlight="Location"
+          description="Create a new warehouse to manage inventory"
+          align="left"
+          className="mb-8"
+        />
 
         {/* Form */}
-        <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
+        <div className="bg-white rounded-2xl shadow-xl border border-[#EDE9FE] p-8">
           <WarehouseForm
             onSubmit={handleSubmit}
             isLoading={loading}
