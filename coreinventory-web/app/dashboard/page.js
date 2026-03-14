@@ -1,78 +1,73 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../hooks/useAuth';
-import { LogOut, User, Shield, Package, Warehouse, ArrowRight } from 'lucide-react';
+import { useWarehouses } from '../../hooks/useWarehouses';
+import { LogOut, User, Shield, Package, Warehouse, ArrowRight, Building, AlertCircle } from 'lucide-react';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { user, token, isAuthenticated, logout, getCurrentUser } = useAuth();
+  const { user, logout, getCurrentUser } = useAuth();
+  const { warehouses, loading: warehousesLoading, fetchWarehouses } = useWarehouses();
+  
   const [userDetails, setUserDetails] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [authChecked, setAuthChecked] = useState(false);
+  const [stats, setStats] = useState({
+    totalWarehouses: 0,
+    activeWarehouses: 0,
+    totalProducts: 0,
+    pendingDeliveries: 12
+  });
 
+  const hasFetched = useRef(false);
+
+  // Load dashboard data only once
   useEffect(() => {
-    const checkAuth = async () => {
-      console.log('🔍 Dashboard auth check started');
-      console.log('Token from store:', token);
-      console.log('User from store:', user);
-      
-      // Check localStorage directly as backup
+    if (hasFetched.current) return;
+    hasFetched.current = true;
+
+    const loadDashboardData = async () => {
       const localToken = localStorage.getItem('token');
-      const localUser = localStorage.getItem('user');
-      
-      console.log('Token from localStorage:', localToken ? 'exists' : 'missing');
-      console.log('User from localStorage:', localUser ? 'exists' : 'missing');
-      
-      // If no token anywhere, redirect to login
-      if (!token && !localToken) {
-        console.log('❌ No token found anywhere, redirecting to login');
+      if (!localToken) {
         window.location.href = '/auth/login';
         return;
       }
 
       try {
-        // If we have token but no user details, fetch them
-        if ((token || localToken) && !userDetails) {
-          console.log('📤 Fetching user details...');
-          const userData = await getCurrentUser();
-          console.log('📥 User data fetched:', userData);
-          
-          if (userData) {
-            setUserDetails(userData);
-          } else {
-            // If fetch fails, token might be invalid
-            console.log('❌ Failed to fetch user, token might be invalid');
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-            window.location.href = '/auth/login';
-            return;
-          }
-        } else if (localUser && !userDetails) {
-          // Use stored user if available
-          setUserDetails(JSON.parse(localUser));
+        // Fetch user details
+        const userData = await getCurrentUser();
+        if (userData) {
+          setUserDetails(userData);
         }
+
+        // Fetch warehouses data
+        const warehousesData = await fetchWarehouses({ limit: 100 });
+        if (warehousesData) {
+          const activeCount = warehousesData.filter(w => w.isActive).length;
+          setStats(prev => ({
+            ...prev,
+            totalWarehouses: warehousesData.length,
+            activeWarehouses: activeCount
+          }));
+        }
+
       } catch (error) {
-        console.error('❌ Error checking auth:', error);
-        window.location.href = '/auth/login';
-        return;
+        console.error('Error loading dashboard:', error);
       } finally {
         setLoading(false);
-        setAuthChecked(true);
       }
     };
 
-    checkAuth();
-  }, [token, user, getCurrentUser]);
+    loadDashboardData();
+  }, []); // Empty dependency array - run only once
 
   const handleLogout = () => {
     logout();
   };
 
-  if (loading) {
+  if (loading || warehousesLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -83,18 +78,15 @@ export default function DashboardPage() {
     );
   }
 
-  if (!authChecked) {
-    return null;
-  }
-
   const displayName = userDetails?.name || user?.name || 'User';
   const displayEmail = userDetails?.email || user?.email || '';
   const displayRole = userDetails?.role || user?.role || 'staff';
+  const isAdmin = displayRole === 'admin';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/50">
       {/* Header */}
-      <nav className="bg-white shadow-sm border-b border-slate-200">
+      <nav className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
@@ -136,93 +128,153 @@ export default function DashboardPage() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          {/* Total Products Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 bg-blue-100 rounded-lg">
                 <Package className="h-6 w-6 text-blue-600" />
               </div>
-              <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+              <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
                 Total
               </span>
             </div>
-            <h3 className="text-2xl font-bold text-slate-900">156</h3>
+            <h3 className="text-3xl font-bold text-slate-900">{stats.totalProducts}</h3>
             <p className="text-sm text-slate-600 mt-1">Products in stock</p>
+            <p className="text-xs text-slate-400 mt-2">Across {stats.activeWarehouses} warehouses</p>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="p-2 bg-amber-100 rounded-lg">
-                <Warehouse className="h-6 w-6 text-amber-600" />
+          {/* Warehouses Card */}
+          <Link href="/settings/warehouses" className="block">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow hover:border-blue-200 cursor-pointer">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-2 bg-amber-100 rounded-lg">
+                  <Warehouse className="h-6 w-6 text-amber-600" />
+                </div>
+                <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+                  Active
+                </span>
               </div>
-              <span className="text-sm font-medium text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
-                Active
-              </span>
+              <h3 className="text-3xl font-bold text-slate-900">{stats.activeWarehouses}</h3>
+              <p className="text-sm text-slate-600 mt-1">Active Warehouses</p>
+              <p className="text-xs text-slate-400 mt-2">Total: {stats.totalWarehouses}</p>
             </div>
-            <h3 className="text-2xl font-bold text-slate-900">3</h3>
-            <p className="text-sm text-slate-600 mt-1">Warehouses</p>
-          </div>
+          </Link>
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          {/* Pending Deliveries Card */}
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 bg-emerald-100 rounded-lg">
                 <ArrowRight className="h-6 w-6 text-emerald-600" />
               </div>
-              <span className="text-sm font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+              <span className="text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
                 Today
               </span>
             </div>
-            <h3 className="text-2xl font-bold text-slate-900">12</h3>
-            <p className="text-sm text-slate-600 mt-1">Pending deliveries</p>
+            <h3 className="text-3xl font-bold text-slate-900">{stats.pendingDeliveries}</h3>
+            <p className="text-sm text-slate-600 mt-1">Pending Deliveries</p>
+            <p className="text-xs text-slate-400 mt-2">Awaiting processing</p>
           </div>
 
+          {/* Role Card */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="p-2 bg-purple-100 rounded-lg">
                 <User className="h-6 w-6 text-purple-600" />
               </div>
-              <span className="text-sm font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
-                Role
+              <span className="text-xs font-medium text-purple-600 bg-purple-50 px-2 py-1 rounded-full">
+                Access
               </span>
             </div>
-            <h3 className="text-2xl font-bold text-slate-900 capitalize">{displayRole}</h3>
-            <p className="text-sm text-slate-600 mt-1">Account type</p>
+            <h3 className="text-3xl font-bold text-slate-900 capitalize">{displayRole}</h3>
+            <p className="text-sm text-slate-600 mt-1">Account Type</p>
+            {isAdmin && (
+              <p className="text-xs text-blue-600 mt-2">Full system access</p>
+            )}
           </div>
         </div>
 
-        {/* User Details Card */}
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Link href="/settings/warehouses/new" className="block">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-slate-900">Add Warehouse</h3>
+                  <p className="text-sm text-slate-600 mt-1">Create a new warehouse location</p>
+                </div>
+                <Building className="h-8 w-8 text-blue-600" />
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/settings/warehouses" className="block">
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-100 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-slate-900">Manage Warehouses</h3>
+                  <p className="text-sm text-slate-600 mt-1">View and edit warehouse details</p>
+                </div>
+                <Warehouse className="h-8 w-8 text-amber-600" />
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/profile" className="block">
+            <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-6 border border-emerald-100 hover:shadow-md transition-shadow">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-slate-900">Profile Settings</h3>
+                  <p className="text-sm text-slate-600 mt-1">Update your account details</p>
+                </div>
+                <User className="h-8 w-8 text-emerald-600" />
+              </div>
+            </div>
+          </Link>
+        </div>
+
+        {/* Recent Warehouses */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Your Profile Details</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="p-4 bg-slate-50 rounded-lg">
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Name</label>
-              <p className="text-lg font-semibold text-slate-900 mt-1">{displayName}</p>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-lg">
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Email</label>
-              <p className="text-lg font-semibold text-slate-900 mt-1">{displayEmail}</p>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-lg">
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">User ID</label>
-              <p className="text-sm font-mono text-slate-900 mt-1">{userDetails?.id || user?.id || 'N/A'}</p>
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-lg">
-              <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Status</label>
-              <p className="text-lg font-semibold text-emerald-600 mt-1">✓ Active</p>
-            </div>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-900">Recent Warehouses</h2>
+            <Link href="/settings/warehouses" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+              View all →
+            </Link>
           </div>
-        </div>
-
-        {/* Debug Info - Remove in production */}
-        <div className="mt-8 p-4 bg-slate-100 rounded-lg">
-          <p className="text-xs text-slate-500 font-mono">
-            Auth Status: {isAuthenticated ? '✅' : '❌'} | 
-            Token: {token ? '✅' : '❌'} | 
-            User: {user ? '✅' : '❌'}
-          </p>
+          
+          <div className="space-y-3">
+            {warehouses && warehouses.length > 0 ? (
+              warehouses.slice(0, 3).map((warehouse) => (
+                <Link key={warehouse._id} href={`/settings/warehouses/${warehouse._id}`}>
+                  <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
+                    <div>
+                      <p className="font-medium text-slate-900">{warehouse.name}</p>
+                      <p className="text-sm text-slate-600">{warehouse.code}</p>
+                    </div>
+                    <div className="flex items-center">
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        warehouse.isActive 
+                          ? 'bg-emerald-100 text-emerald-700' 
+                          : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {warehouse.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                      <ArrowRight className="h-4 w-4 text-slate-400 ml-2" />
+                    </div>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <div className="text-center py-8 text-slate-500">
+                <AlertCircle className="h-8 w-8 mx-auto mb-2 text-slate-400" />
+                <p>No warehouses found</p>
+                {isAdmin && (
+                  <Link href="/settings/warehouses/new" className="text-sm text-blue-600 hover:text-blue-700 mt-2 inline-block">
+                    Create your first warehouse →
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </main>
     </div>

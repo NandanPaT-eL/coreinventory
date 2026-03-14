@@ -1,9 +1,20 @@
 import { Router } from "express";
-import { signUp, signIn, getMe } from "../controllers/auth.controller.js";
+import {
+  signUp,
+  signIn,
+  getMe,
+  forgotPassword,
+  resetPassword
+} from "../controllers/auth.controller.js";
 import { protect } from "../middleware/auth.middleware.js";
 import { authorizeRoles } from "../middleware/role.middleware.js";
-import { validate } from "../middleware/validate.middleware.js";
-import { signUpSchema, signInSchema } from "../validators/auth.validator.js";
+import { validateZod } from "../middleware/validateZod.middleware.js";
+import {
+  signUpSchema,
+  signInSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema
+} from "../validators/auth.validator.js";
 
 const router = Router();
 
@@ -13,12 +24,10 @@ Public Routes
 --------------------------------------------------
 */
 
-// Register new user
-router.post("/signup", validate(signUpSchema), signUp);
-
-// Login user
-router.post("/signin", validate(signInSchema), signIn);
-
+router.post("/signup", validateZod(signUpSchema), signUp);
+router.post("/signin", validateZod(signInSchema), signIn);
+router.post("/forgot-password", validateZod(forgotPasswordSchema), forgotPassword);
+router.post("/reset-password", validateZod(resetPasswordSchema), resetPassword);
 
 /*
 --------------------------------------------------
@@ -26,9 +35,7 @@ Protected Routes
 --------------------------------------------------
 */
 
-// Get current logged-in user
 router.get("/me", protect, getMe);
-
 
 /*
 --------------------------------------------------
@@ -36,7 +43,6 @@ Role-based Example Routes
 --------------------------------------------------
 */
 
-// Only admin can access
 router.get(
   "/admin-test",
   protect,
@@ -50,7 +56,6 @@ router.get(
   }
 );
 
-// Admin and Manager allowed
 router.get(
   "/manager-test",
   protect,

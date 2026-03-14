@@ -1,5 +1,13 @@
 import User from "../models/User.model.js";
 import { generateAccessToken } from "../utils/jwt.js";
+import {
+  generateOtp,
+  canResendOtp,
+  saveOtp,
+  verifyOtp,
+  deleteOtp
+} from "../utils/otp.js";
+import { sendPasswordResetOtpEmail } from "../utils/mailer.js";
 
 const allowedRoles = ["admin", "manager", "staff"];
 
@@ -40,7 +48,6 @@ export async function signUp(req, res) {
         token
       }
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -94,7 +101,6 @@ export async function signIn(req, res) {
         token
       }
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -129,11 +135,93 @@ export async function getMe(req, res) {
         }
       }
     });
-
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Failed to fetch current user",
+      error: error.message
+    });
+  }
+}
+
+export async function forgotPassword(req, res) {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No user found with this email"
+      });
+    }
+
+    const resendAllowed = await canResendOtp(email);
+
+    if (!resendAllowed) {
+      return res.status(429).json({
+        success: false,
+        message: "Please wait before requesting another OTP"
+      });
+    }
+
+    const otp = generateOtp();
+
+    await saveOtp(email, otp);
+    await sendPasswordResetOtpEmail({
+      to: email,
+      otp
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "OTP sent successfully to your email"
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to send OTP",
+      error: error.message
+    });
+  }
+}
+
+export async function resetPassword(req, res) {
+  try {
+    const { email, otp, newPassword } = req.body;
+
+    const user = await User.findOne({ email }).select("+password");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No user found with this email"
+      });
+    }
+
+    const otpVerification = await verifyOtp(email, otp);
+
+    if (!otpVerification.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: otpVerification.reason
+      });
+    }
+
+    user.password = newPassword;
+    await user.save();
+
+    await deleteOtp(email);
+
+    return res.status(200).json({
+      success: true,
+      message: "Password reset successfully"
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to reset password",
       error: error.message
     });
   }

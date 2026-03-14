@@ -1,7 +1,17 @@
-import { Inter } from 'next/font/google';
+import { DM_Sans, Syne } from 'next/font/google';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'] });
+const dmSans = DM_Sans({ 
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
+  variable: '--font-dm-sans',
+});
+
+const syne = Syne({ 
+  subsets: ['latin'],
+  weight: ['700', '800'],
+  variable: '--font-syne',
+});
 
 export const metadata = {
   title: 'CoreInventory - Inventory Management System',
@@ -10,11 +20,9 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50/50">
-          {children}
-        </main>
+    <html lang="en" className={`${dmSans.variable} ${syne.variable}`}>
+      <body className="font-sans">
+        {children}
       </body>
     </html>
   );

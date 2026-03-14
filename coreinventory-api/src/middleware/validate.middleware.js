@@ -1,19 +1,18 @@
-export function validate(schema) {
-  return (req, res, next) => {
-    try {
-      schema.parse({
-        body: req.body,
-        query: req.query,
-        params: req.params
-      });
+import { validationResult } from 'express-validator';
 
-      next();
-    } catch (error) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: error.errors || error.message
-      });
+export const validate = (validations) => {
+  return async (req, res, next) => {
+    // Run all validations
+    await Promise.all(validations.map(validation => validation.run(req)));
+
+    const errors = validationResult(req);
+    if (errors.isEmpty()) {
+      return next();
     }
+
+    return res.status(400).json({
+      success: false,
+      errors: errors.array()
+    });
   };
-}
+};
